@@ -29,7 +29,7 @@ def load_all(study_id: str) -> list[dict]:
     if not path.exists():
         return []
     episodes = []
-    for line in path.read_text().strip().splitlines():
+    for line in path.read_text(encoding="utf-8").strip().splitlines():
         if line.strip():
             episodes.append(json.loads(line))
     episodes.sort(key=lambda e: e.get("iteration_n", 0))

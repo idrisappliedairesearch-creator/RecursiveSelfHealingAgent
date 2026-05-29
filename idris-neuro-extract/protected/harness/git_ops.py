@@ -34,7 +34,7 @@ def ensure_branch(branch_name: str) -> None:
 def verify_no_remote_push(branch_name: str) -> None:
     git_config = PROJECT_ROOT / ".git" / "config"
     if git_config.exists():
-        config_text = git_config.read_text()
+        config_text = git_config.read_text(encoding="utf-8")
         upstream_info = _run_git(["config", f"branch.{branch_name}.remote"], check=False)
         if upstream_info.returncode == 0 and upstream_info.stdout.strip():
             raise RuntimeError(
@@ -70,6 +70,9 @@ def commit_iteration(iteration_n: int, study_id: str, rationale: str) -> str:
     )
 
     _run_git(["add", "."])
+    diff_check = _run_git(["diff", "--cached", "--quiet"], check=False)
+    if diff_check.returncode == 0:
+        return ""
     result = _run_git(["commit", "-m", message])
     return result.stdout.strip()
 
@@ -79,7 +82,7 @@ def last_committed_iteration(study_id: str) -> int:
     if not metrics_path.exists():
         return -1
     last_n = -1
-    for line in metrics_path.read_text().strip().splitlines():
+    for line in metrics_path.read_text(encoding="utf-8").strip().splitlines():
         if line.strip():
             record = json.loads(line)
             n = record.get("iteration_n", -1)

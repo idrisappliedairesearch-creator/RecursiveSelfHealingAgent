@@ -13,7 +13,7 @@ class ValidationResult:
 
 
 def reload_playground() -> None:
-    to_remove = [key for key in sys.modules if key.startswith("playground")]
+    to_remove = [key for key in sys.modules if key.startswith("playground") or key.startswith("extractor")]
     for key in to_remove:
         del sys.modules[key]
 
@@ -22,7 +22,7 @@ async def validate_interface() -> ValidationResult:
     reload_playground()
 
     try:
-        module = await asyncio.get_event_loop().run_in_executor(
+        module = await asyncio.get_running_loop().run_in_executor(
             None, __import__, ENTRY_POINT_MODULE
         )
         mod = module

@@ -98,7 +98,7 @@ async def run_corpus(study_id: str) -> CorpusRunResult:
 
     for idx, af in enumerate(abstract_files, 1):
         abstract_id = af.stem
-        abstract_data = json.loads(af.read_text())
+        abstract_data = json.loads(af.read_text(encoding="utf-8"))
         abstract_text = abstract_data.get("abstract", abstract_data.get("text", ""))
         abstract_texts[abstract_id] = abstract_text
         try:

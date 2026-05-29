@@ -33,7 +33,7 @@ class StudyAlreadyComplete(Exception):
 def _load_ground_truth() -> dict[str, list[str]]:
     gt_path = PROJECT_ROOT / "corpus" / "ground_truth.jsonl"
     gt = {}
-    for line in gt_path.read_text().strip().splitlines():
+    for line in gt_path.read_text(encoding="utf-8").strip().splitlines():
         if line.strip():
             entry = json.loads(line)
             gt[entry["abstract_id"]] = entry["claims"]
@@ -61,7 +61,7 @@ def _load_prior_output(study_id: str) -> tuple[list[dict], int]:
     if best_path is None:
         return [], 0
 
-    records = json.loads(best_path.read_text())
+    records = json.loads(best_path.read_text(encoding="utf-8"))
     prior_output = []
     for rec in records:
         prior_output.append({
@@ -130,7 +130,7 @@ def _pre_run_checks(study_id: str) -> None:
     manifest = PROJECT_ROOT / "corpus" / "corpus_manifest.md"
     if not manifest.exists():
         raise RuntimeError("Corpus manifest not found")
-    if "commit_sha" not in manifest.read_text():
+    if "commit_sha" not in manifest.read_text(encoding="utf-8"):
         raise RuntimeError("Corpus manifest missing commit_sha")
 
     for fp in allowlist.ALLOWED_FILE_EXACT:
@@ -145,9 +145,9 @@ def _pre_run_checks(study_id: str) -> None:
     metrics_path = PROJECT_ROOT / "experiments" / study_id / "metrics.jsonl"
     if metrics_path.exists():
         count = 0
-        for line in metrics_path.read_text().strip().splitlines():
-            if line.strip():
-                count += 1
+for line in metrics_path.read_text(encoding="utf-8").strip().splitlines():
+                if line.strip():
+                    count += 1
         if count >= 21:
             raise StudyAlreadyComplete(
                 f"Study {study_id} already complete ({count} metrics entries)"
@@ -156,9 +156,9 @@ def _pre_run_checks(study_id: str) -> None:
     episodes_count = episode_store.count(study_id)
     if metrics_path.exists() and episodes_count > 0:
         persisted_count = 0
-        for line in metrics_path.read_text().strip().splitlines():
-            if line.strip():
-                rec = json.loads(line)
+for line in metrics_path.read_text(encoding="utf-8").strip().splitlines():
+                if line.strip():
+                    rec = json.loads(line)
                 if rec.get("episode_persisted"):
                     persisted_count += 1
         if episodes_count != persisted_count:

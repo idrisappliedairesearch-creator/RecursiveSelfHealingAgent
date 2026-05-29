@@ -60,7 +60,7 @@ def apply_edits(edits: list[Edit]) -> ApplyResult:
                     reason="file_not_found",
                     offending_path=edit.file_path,
                 )
-            content = full_path.read_text()
+            content = full_path.read_text(encoding="utf-8")
             count = content.count(edit.old_string)
             if count == 0:
                 return ApplyResult(
@@ -121,21 +121,21 @@ def apply_edits(edits: list[Edit]) -> ApplyResult:
         full_path = root / edit.file_path
 
         if edit.operation == "replace_string":
-            content = full_path.read_text()
+            content = full_path.read_text(encoding="utf-8")
             new_content = content.replace(edit.old_string, edit.new_string, 1)
             tmp_path = full_path.with_suffix(full_path.suffix + ".tmp")
-            tmp_path.write_text(new_content)
+            tmp_path.write_text(new_content, encoding="utf-8")
             tmp_path.replace(full_path)
 
         elif edit.operation == "replace_file":
             tmp_path = full_path.with_suffix(full_path.suffix + ".tmp")
-            tmp_path.write_text(edit.new_content)
+            tmp_path.write_text(edit.new_content, encoding="utf-8")
             tmp_path.replace(full_path)
 
         elif edit.operation == "create_file":
             full_path.parent.mkdir(parents=True, exist_ok=True)
             tmp_path = full_path.with_suffix(full_path.suffix + ".tmp")
-            tmp_path.write_text(edit.new_content)
+            tmp_path.write_text(edit.new_content, encoding="utf-8")
             tmp_path.replace(full_path)
 
         elif edit.operation == "delete_file":

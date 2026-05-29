@@ -17,9 +17,11 @@ class TokenUsage:
 
 class LlamaCppProvider:
     def __init__(self):
+        http_timeout = float(os.environ.get("LLM_HTTP_TIMEOUT_S", 600))
         self.client = openai.OpenAI(
             base_url=os.environ["LLAMA_CPP_BASE_URL"],
             api_key=os.environ.get("LLAMA_CPP_API_KEY", "no-key"),
+            timeout=http_timeout,
         )
         self.model = os.environ.get("LLAMA_CPP_MODEL_ID", "qwen3-27b-mtp-6bit")
         self.context_window = int(os.environ.get("LLAMA_CPP_CONTEXT_WINDOW", "262144"))

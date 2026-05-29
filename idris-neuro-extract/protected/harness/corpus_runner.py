@@ -93,20 +93,19 @@ async def run_corpus(study_id: str) -> CorpusRunResult:
     failures: list[CorpusAbstractFailure] = []
     abstract_texts: dict[str, str] = {}
 
+    print(f"  Corpus: running {len(abstract_files)} abstracts...")
     start = time.monotonic()
 
-    for af in abstract_files:
+    for idx, af in enumerate(abstract_files, 1):
         abstract_id = af.stem
         abstract_data = json.loads(af.read_text())
         abstract_text = abstract_data.get("abstract", abstract_data.get("text", ""))
         abstract_texts[abstract_id] = abstract_text
         try:
-            result = await asyncio.shield(
-                extract_fn(abstract_id, abstract_text)
-            )
+            result = await extract_fn(abstract_id, abstract_text)
             results.append(result)
-        except asyncio.CancelledError:
-            raise
+            if idx % 25 == 0 or idx == len(abstract_files):
+                print(f"  Corpus: {idx}/{len(abstract_files)} abstracts processed ({len(failures)} failures)")
         except Exception as e:
             log_anomaly(
                 study_id, -1,

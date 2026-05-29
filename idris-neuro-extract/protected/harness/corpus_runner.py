@@ -104,8 +104,7 @@ async def run_corpus(study_id: str) -> CorpusRunResult:
         try:
             result = await extract_fn(abstract_id, abstract_text)
             results.append(result)
-            if idx % 25 == 0 or idx == len(abstract_files):
-                print(f"  Corpus: {idx}/{len(abstract_files)} abstracts processed ({len(failures)} failures)")
+            print(f"  Corpus: {idx}/{len(abstract_files)} done (abstract {abstract_id})")
         except Exception as e:
             log_anomaly(
                 study_id, -1,

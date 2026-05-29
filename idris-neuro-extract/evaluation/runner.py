@@ -87,3 +87,7 @@ def run(threshold: int = 80) -> dict:
     print(f"Macro P={macro_p:.4f} R={macro_r:.4f} F1={macro_f1:.4f}")
     print(f"Micro TP={micro_tp} FP={micro_fp} FN={micro_fn}")
     return report
+
+
+if __name__ == "__main__":
+    run()

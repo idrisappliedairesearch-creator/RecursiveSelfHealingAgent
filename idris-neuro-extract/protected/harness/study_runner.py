@@ -15,6 +15,7 @@ from protected.harness import (
     episode_store,
     git_ops,
     interface_validator,
+    model_performance,
 )
 from protected.harness.edit_applier import apply_edits
 from protected.harness.edit_protocol import AgentFailure
@@ -251,6 +252,7 @@ async def _run_baseline(study_id: str) -> None:
     artifact_writer.write_iteration_artifacts(0, study_id, corpus_result)
     artifact_writer.snapshot_playground(0, study_id)
     artifact_writer.append_metrics(0, study_id, metrics)
+    model_performance.append_after_iteration(study_id, 0)
 
 
 async def _run_iteration(iteration_n: int, study_id: str) -> str | None:
@@ -460,6 +462,7 @@ async def _run_iteration(iteration_n: int, study_id: str) -> str | None:
     artifact_writer.write_iteration_artifacts(iteration_n, study_id, corpus_result)
     artifact_writer.append_metrics(iteration_n, study_id, metrics)
     artifact_writer.append_rationale(iteration_n, study_id, agent_result.rationale)
+    model_performance.append_after_iteration(study_id, iteration_n)
 
     return agent_result.rationale
 
@@ -484,6 +487,7 @@ async def _run_study_async(study_id: str, n_iterations: int) -> None:
         print(f"[{study_id}] Iteration {i} committed.")
 
     print(f"[{study_id}] Study complete. {n_iterations + 1} iterations total.")
+    model_performance.summarize(study_id)
 
 
 def run_study(study_id: str = "study_001", n_iterations: int = 20) -> None:

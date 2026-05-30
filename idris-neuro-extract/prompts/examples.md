@@ -17,3 +17,7 @@ Abstract: Functional MRI was used to compare activation in patients and controls
 Example 5:
 Abstract: The left dorsolateral premotor cortex maintains temporal order during verbal short-term memory processing. Broca's area supports the articulatory processes required for phonological recoding of visual stimuli. Both tasks activated the left inferior frontal gyrus and superior temporal sulcus.
 {"claims": ["The left dorsolateral premotor cortex shows activation during verbal short-term memory processing tasks.", "Broca's area shows activation during phonological recoding of visual stimuli.", "Both tasks activate the left inferior frontal gyrus and superior temporal sulcus."]}
+
+Example 6:
+Abstract: Twelve patients with lesion A and 8 with lesion B were studied. Patients with lesion A showed significant deficits in naming accuracy (p<0.05) compared to controls. fMRI revealed that patients with lesion A had reduced activation in the left inferior frontal gyrus and left posterior temporal cortex during naming. Controls showed robust activation in these areas. No differences in reaction times were observed between groups.
+{"claims": ["Patients with lesion A show reduced activation in the left inferior frontal gyrus and left posterior temporal cortex during naming compared to controls.", "Controls show robust activation in the left inferior frontal gyrus and left posterior temporal cortex during naming."]}

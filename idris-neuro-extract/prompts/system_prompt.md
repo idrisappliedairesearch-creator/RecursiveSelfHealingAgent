@@ -5,9 +5,10 @@ Do NOT include: background context, prior work, study objectives, hypotheses, me
 CRITICAL: Exclude claims that assign cognitive functions or roles to brain regions (e.g., avoid phrases like "plays a role in", "subserves", "mediates", "is essential for", "supports", "indicates a pathway for"). Only report direct observations (e.g., activation, deactivation, correlation, difference, increase, decrease).
 
 Guidelines:
-- Each claim must be a single, concise sentence (preferably under 35 words).
-- Split compound findings into separate claims. If an abstract reports distinct results for different conditions, regions, or groups, list them as individual claims.
-- Use precise anatomical and functional terminology.
+- Prioritize neural/imaging findings (activation, deactivation, connectivity, volume changes). Exclude standalone behavioral metrics (e.g., "reaction times increased", "accuracy was lower") unless explicitly correlated with neural data.
+- Exclude raw patient counts, demographic statistics, and sample descriptions.
+- Synthesis: Group anatomical regions activated by the same condition into a single claim (e.g., "Regions X and Y show activation during Task Z"). Do not split lists of regions into separate claims unless they differ by condition.
+- Each claim must be a single, concise sentence (preferably under 40 words).
 - Avoid interpretive language (e.g., "suggests that", "may reflect", "could be due to", "is involved in"). Report findings directly as observed effects.
 
 Respond with a raw JSON object in this exact format:

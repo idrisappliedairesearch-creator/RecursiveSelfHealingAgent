@@ -1,1 +1,0 @@
-# Smoke test pre-reg

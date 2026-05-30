@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import subprocess
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -14,11 +15,13 @@ from protected.harness import (
     episode_store,
     git_ops,
     interface_validator,
+    model_performance,
 )
 from protected.harness.edit_applier import apply_edits
 from protected.harness.edit_protocol import AgentFailure
 from protected.harness.anomaly_logger import log_anomaly
 from protected.interface import ITERATION_TIMEOUT_S
+
 from protected.scorer import score_corpus
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -31,10 +34,13 @@ class StudyAlreadyComplete(Exception):
 def _load_ground_truth() -> dict[str, list[str]]:
     gt_path = PROJECT_ROOT / "corpus" / "ground_truth.jsonl"
     gt = {}
-    for line in gt_path.read_text().strip().splitlines():
+    for line in gt_path.read_text(encoding="utf-8").strip().splitlines():
         if line.strip():
-            entry = json.loads(line)
-            gt[entry["abstract_id"]] = entry["claims"]
+            try:
+                entry = json.loads(line)
+                gt[entry["abstract_id"]] = entry["claims"]
+            except json.JSONDecodeError:
+                pass
     return gt
 
 
@@ -59,7 +65,10 @@ def _load_prior_output(study_id: str) -> tuple[list[dict], int]:
     if best_path is None:
         return [], 0
 
-    records = json.loads(best_path.read_text())
+    try:
+        records = json.loads(best_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return [], 0
     prior_output = []
     for rec in records:
         prior_output.append({
@@ -128,7 +137,7 @@ def _pre_run_checks(study_id: str) -> None:
     manifest = PROJECT_ROOT / "corpus" / "corpus_manifest.md"
     if not manifest.exists():
         raise RuntimeError("Corpus manifest not found")
-    if "commit_sha" not in manifest.read_text():
+    if "commit_sha" not in manifest.read_text(encoding="utf-8"):
         raise RuntimeError("Corpus manifest missing commit_sha")
 
     for fp in allowlist.ALLOWED_FILE_EXACT:
@@ -143,9 +152,13 @@ def _pre_run_checks(study_id: str) -> None:
     metrics_path = PROJECT_ROOT / "experiments" / study_id / "metrics.jsonl"
     if metrics_path.exists():
         count = 0
-        for line in metrics_path.read_text().strip().splitlines():
-            if line.strip():
-                count += 1
+        for line in metrics_path.read_text(encoding="utf-8").strip().splitlines():
+                if line.strip():
+                    try:
+                        json.loads(line)
+                        count += 1
+                    except json.JSONDecodeError:
+                        pass
         if count >= 21:
             raise StudyAlreadyComplete(
                 f"Study {study_id} already complete ({count} metrics entries)"
@@ -154,11 +167,14 @@ def _pre_run_checks(study_id: str) -> None:
     episodes_count = episode_store.count(study_id)
     if metrics_path.exists() and episodes_count > 0:
         persisted_count = 0
-        for line in metrics_path.read_text().strip().splitlines():
-            if line.strip():
-                rec = json.loads(line)
-                if rec.get("episode_persisted"):
-                    persisted_count += 1
+        for line in metrics_path.read_text(encoding="utf-8").strip().splitlines():
+                if line.strip():
+                    try:
+                        rec = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if rec.get("episode_persisted"):
+                        persisted_count += 1
         if episodes_count != persisted_count:
             raise RuntimeError(
                 f"Episode count ({episodes_count}) does not match "
@@ -183,12 +199,32 @@ def _pre_run_checks(study_id: str) -> None:
 
 async def _run_baseline(study_id: str) -> None:
     ground_truth = _load_ground_truth()
-    corpus_result = await asyncio.wait_for(
-        corpus_runner.run_corpus(study_id),
-        timeout=ITERATION_TIMEOUT_S,
-    )
+    print(f"  Corpus run starting...")
+    t0 = time.time()
+    try:
+        corpus_result = await asyncio.wait_for(
+            corpus_runner.run_corpus(study_id),
+            timeout=ITERATION_TIMEOUT_S,
+        )
+    except asyncio.TimeoutError:
+        print(f"  Corpus TIMEOUT after {time.time()-t0:.0f}s")
+        log_anomaly(study_id, 0, "iteration_timeout", {})
+        metrics = _make_metrics_base(0)
+        metrics["anomaly"] = True
+        artifact_writer.append_metrics(0, study_id, metrics)
+        return
+    except Exception as e:
+        print(f"  Corpus FAILED: {e}")
+        log_anomaly(study_id, 0, "scan_failure", {"error": str(e)})
+        metrics = _make_metrics_base(0)
+        metrics["anomaly"] = True
+        artifact_writer.append_metrics(0, study_id, metrics)
+        return
+    elapsed = time.time() - t0
+    print(f"  Corpus done in {elapsed:.0f}s: {len(corpus_result.results)} abstracts, {len(corpus_result.failures)} failures")
 
     score_result = score_corpus(corpus_result.results, ground_truth)
+    print(f"  Baseline scores: P={score_result['macro_precision']:.3f} R={score_result['macro_recall']:.3f} F1={score_result['macro_f1']:.3f}")
 
     metrics = _make_metrics_base(0)
     metrics["scanned"] = True
@@ -216,6 +252,7 @@ async def _run_baseline(study_id: str) -> None:
     artifact_writer.write_iteration_artifacts(0, study_id, corpus_result)
     artifact_writer.snapshot_playground(0, study_id)
     artifact_writer.append_metrics(0, study_id, metrics)
+    model_performance.append_after_iteration(study_id, 0)
 
 
 async def _run_iteration(iteration_n: int, study_id: str) -> str | None:
@@ -230,6 +267,7 @@ async def _run_iteration(iteration_n: int, study_id: str) -> str | None:
     prior_episodes = episode_store.load_all(study_id)
     current_files = _current_files()
 
+    print(f"  Calling agent (output from iteration {prior_iter}, {len(prior_episodes)} prior episodes)...")
     agent_result = await agent_caller.invoke(
         prior_output=prior_output,
         prior_output_iteration=prior_iter,
@@ -240,6 +278,7 @@ async def _run_iteration(iteration_n: int, study_id: str) -> str | None:
     metrics = _make_metrics_base(iteration_n)
 
     if isinstance(agent_result, AgentFailure):
+        print(f"  Agent FAILED: {agent_result.reason}")
         log_anomaly(
             study_id, iteration_n,
             "agent_response_malformed",
@@ -259,11 +298,15 @@ async def _run_iteration(iteration_n: int, study_id: str) -> str | None:
         metrics["agent_tokens_per_second"] = tu.tokens_per_second
         metrics["agent_context_window"] = tu.context_window
 
+    print(f"  Agent: hypothesis={agent_result.episode.hypothesis[:100]}...")
+    print(f"  Agent: expectation={agent_result.episode.expectation[:100]}...")
+    print(f"  Agent proposed {len(agent_result.edits)} edits")
     if not agent_result.edits:
         log_anomaly(study_id, iteration_n, "empty_edits", {})
 
     apply_result = apply_edits(agent_result.edits)
     if not apply_result.applied:
+        print(f"  Edits REJECTED: {apply_result.reason} ({apply_result.offending_path})")
         log_anomaly(
             study_id, iteration_n,
             apply_result.reason or "edit_apply_failed",
@@ -275,6 +318,7 @@ async def _run_iteration(iteration_n: int, study_id: str) -> str | None:
 
     metrics["agent_edits_applied"] = len(apply_result.files_changed or [])
     metrics["playground_files_changed"] = apply_result.files_changed or []
+    print(f"  Edits applied: {apply_result.files_changed}")
 
     # Repair loop: up to 3 total attempts (original + 2 repairs)
     repair_attempts = 0
@@ -285,7 +329,11 @@ async def _run_iteration(iteration_n: int, study_id: str) -> str | None:
         val_result = await interface_validator.validate_interface()
         if val_result.valid:
             validation_ok = True
+            if attempt > 1:
+                print(f"  Interface valid after repair attempt {attempt}")
             break
+
+        print(f"  Interface INVALID (attempt {attempt}): {val_result.error}")
 
         log_anomaly(
             study_id, iteration_n,
@@ -303,6 +351,7 @@ async def _run_iteration(iteration_n: int, study_id: str) -> str | None:
             return None
 
         repair_files = _current_files()
+        print(f"  Repair attempt {attempt}: calling agent...")
         repair_result = await agent_caller.invoke_repair(
             error_message=val_result.error or "Validation failed",
             current_files=repair_files,
@@ -350,12 +399,15 @@ async def _run_iteration(iteration_n: int, study_id: str) -> str | None:
         metrics["repair_completion_tokens"] = repair_completion_tokens
     artifact_writer.snapshot_playground(iteration_n, study_id)
 
+    print(f"  Corpus run starting...")
+    t0 = time.time()
     try:
         corpus_result = await asyncio.wait_for(
             corpus_runner.run_corpus(study_id),
             timeout=ITERATION_TIMEOUT_S,
         )
     except asyncio.TimeoutError:
+        print(f"  Corpus TIMEOUT after {time.time()-t0:.0f}s")
         git_ops.rollback_playground()
         log_anomaly(study_id, iteration_n, "iteration_timeout", {})
         log_anomaly(study_id, iteration_n, "episode_discarded", {})
@@ -363,6 +415,7 @@ async def _run_iteration(iteration_n: int, study_id: str) -> str | None:
         artifact_writer.append_metrics(iteration_n, study_id, metrics)
         return None
     except Exception as e:
+        print(f"  Corpus FAILED: {e}")
         git_ops.rollback_playground()
         log_anomaly(
             study_id, iteration_n,
@@ -374,8 +427,12 @@ async def _run_iteration(iteration_n: int, study_id: str) -> str | None:
         artifact_writer.append_metrics(iteration_n, study_id, metrics)
         return None
 
+    elapsed = time.time() - t0
+    print(f"  Corpus done in {elapsed:.0f}s: {len(corpus_result.results)} abstracts, {len(corpus_result.failures)} failures")
+
     ground_truth = _load_ground_truth()
     score_result = score_corpus(corpus_result.results, ground_truth)
+    print(f"  Scores: P={score_result['macro_precision']:.3f} R={score_result['macro_recall']:.3f} F1={score_result['macro_f1']:.3f}")
 
     episode_store.append(study_id, iteration_n, agent_result.episode)
     metrics["episode_persisted"] = True
@@ -405,12 +462,14 @@ async def _run_iteration(iteration_n: int, study_id: str) -> str | None:
     artifact_writer.write_iteration_artifacts(iteration_n, study_id, corpus_result)
     artifact_writer.append_metrics(iteration_n, study_id, metrics)
     artifact_writer.append_rationale(iteration_n, study_id, agent_result.rationale)
+    model_performance.append_after_iteration(study_id, iteration_n)
 
     return agent_result.rationale
 
 
 async def _run_study_async(study_id: str, n_iterations: int) -> None:
     _pre_run_checks(study_id)
+    model_performance._get_run_start(study_id)
     git_ops.reset_partial_iteration()
 
     last = git_ops.last_committed_iteration(study_id)
@@ -429,6 +488,7 @@ async def _run_study_async(study_id: str, n_iterations: int) -> None:
         print(f"[{study_id}] Iteration {i} committed.")
 
     print(f"[{study_id}] Study complete. {n_iterations + 1} iterations total.")
+    model_performance.summarize(study_id)
 
 
 def run_study(study_id: str = "study_001", n_iterations: int = 20) -> None:

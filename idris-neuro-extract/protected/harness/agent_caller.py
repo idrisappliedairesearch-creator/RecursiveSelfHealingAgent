@@ -1,4 +1,6 @@
+import asyncio
 import json
+import re
 from pathlib import Path
 
 from extractor.provider import LlamaCppProvider
@@ -51,7 +53,7 @@ def _read_current_files() -> dict[str, str]:
         for f in dirpath.rglob("*"):
             if f.is_file():
                 rel = str(f.relative_to(PROJECT_ROOT))
-                files[rel] = f.read_text()
+                files[rel] = f.read_text(encoding="utf-8", errors="replace")
     return files
 
 
@@ -129,6 +131,10 @@ def _build_repair_prompt(
 
 
 def _parse_response(raw: str) -> dict:
+    raw = raw.strip()
+    m = re.search(r'\{.*\}', raw, re.DOTALL)
+    if m:
+        raw = m.group(0)
     try:
         return json.loads(raw)
     except json.JSONDecodeError as e:
@@ -150,7 +156,9 @@ async def invoke(
     )
 
     try:
-        raw, token_usage = _provider.complete_with_usage(system_prompt, user_message)
+        raw, token_usage = await asyncio.to_thread(
+            _provider.complete_with_usage, system_prompt, user_message
+        )
     except Exception as e:
         return AgentFailure(reason=f"Provider call failed: {e}")
 
@@ -203,7 +211,9 @@ async def invoke_repair(
     )
 
     try:
-        raw, token_usage = _provider.complete_with_usage(system_prompt, user_message)
+        raw, token_usage = await asyncio.to_thread(
+            _provider.complete_with_usage, system_prompt, user_message
+        )
     except Exception as e:
         return AgentFailure(reason=f"Provider call failed: {e}")
 

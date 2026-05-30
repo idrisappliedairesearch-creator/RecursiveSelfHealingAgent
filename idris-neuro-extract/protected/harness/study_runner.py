@@ -469,6 +469,7 @@ async def _run_iteration(iteration_n: int, study_id: str) -> str | None:
 
 async def _run_study_async(study_id: str, n_iterations: int) -> None:
     _pre_run_checks(study_id)
+    model_performance._get_run_start(study_id)
     git_ops.reset_partial_iteration()
 
     last = git_ops.last_committed_iteration(study_id)

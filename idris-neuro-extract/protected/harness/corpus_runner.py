@@ -104,7 +104,8 @@ async def run_corpus(study_id: str) -> CorpusRunResult:
         try:
             result = await extract_fn(abstract_id, abstract_text)
             results.append(result)
-            print(f"  Corpus: {idx}/{len(abstract_files)} done (abstract {abstract_id})")
+            elapsed = time.monotonic() - start
+            print(f"  Corpus: {idx}/{len(abstract_files)} done (abstract {abstract_id}) ({elapsed:.0f}s)")
         except Exception as e:
             log_anomaly(
                 study_id, -1,

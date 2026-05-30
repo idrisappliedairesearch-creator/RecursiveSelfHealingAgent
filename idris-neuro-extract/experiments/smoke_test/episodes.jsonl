@@ -1,0 +1,1 @@
+{"iteration_n": 1, "observation": "Mock observed baseline extraction output.", "hypothesis": "Mock: adding a claim filter will improve precision.", "action": "Mock: replaced a string in extractor.py.", "expectation": "Mock: expect fewer false positives next iteration."}

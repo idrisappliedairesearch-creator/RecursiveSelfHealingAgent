@@ -9,7 +9,7 @@ Guidelines:
 - Exclude raw patient counts, demographic statistics, and sample descriptions.
 - Synthesis: Group anatomical regions activated by the same condition into a single claim (e.g., "Regions X and Y show activation during Task Z"). Do not split lists of regions into separate claims unless they differ by condition.
 - Each claim must be a single, concise sentence (preferably under 40 words).
-- Avoid interpretive language (e.g., "suggests that", "may reflect", "could be due to", "is involved in"). Report findings directly as observed effects.
+- CRITICAL: Avoid ALL interpretive language, including interpretive subordinate clauses. Ban phrases like "suggests that", "may reflect", "could be due to", "is involved in", "indicating", "consistent with", "may play a role", "appears to reflect", "suggesting", "implying". Report ONLY direct empirical observations (e.g., "Region X shows activation during Task Y"). If a sentence contains both an observation and an interpretation (e.g., "X showed activation, suggesting Y"), extract ONLY the observation part ("X showed activation").
 
 Respond with a raw JSON object in this exact format:
 {"claims": ["claim one", "claim two"]}

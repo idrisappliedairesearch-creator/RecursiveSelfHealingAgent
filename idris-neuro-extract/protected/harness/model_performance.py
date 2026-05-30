@@ -126,6 +126,13 @@ def append_after_iteration(study_id: str, iteration_n: int) -> dict:
         cum_fp += _safe_get(rec, "micro_fp")
         cum_fn += _safe_get(rec, "micro_fn")
 
+    # Current iteration's F1 (the last metrics record for this iteration_n)
+    current_f1 = 0.0
+    for rec in reversed(records):
+        if rec.get("iteration_n") == iteration_n:
+            current_f1 = _safe_get(rec, "macro_f1")
+            break
+
     wall_seconds = now - run_start
     avg_tps = cum_total / wall_seconds if wall_seconds > 0 else 0.0
     avg_corpus_tps = (cum_prompt + cum_completion) / cum_scan_duration if cum_scan_duration > 0 else 0.0
@@ -154,6 +161,7 @@ def append_after_iteration(study_id: str, iteration_n: int) -> dict:
         "avg_abstracts_per_second": round(avg_abstracts_per_second, 2),
         "total_abstracts_processed": total_abstracts,
         "total_repair_attempts": int(total_repairs),
+        "iteration_macro_f1": round(current_f1, 4),
         "peak_macro_f1": round(peak_f1, 4),
         "cumulative_micro_tp": int(cum_tp),
         "cumulative_micro_fp": int(cum_fp),
@@ -186,8 +194,8 @@ def summarize(study_id: str) -> None:
     print(f"{'Iter':>4} {'Wall(s)':>8} {'Tokens':>12} {'TPS':>8} "
           f"{'Corpus TPS':>11} {'Abst/s':>8} "
           f"{'Scan(s)':>9} {'Abst':>7} "
-          f"{'F1':>7} {'OK':>4} {'Err':>4}")
-    print("-" * 92)
+          f"{'F1':>7} {'Peak F1':>8} {'OK':>4} {'Err':>4}")
+    print("-" * 100)
 
     for line in lines:
         try:
@@ -203,7 +211,8 @@ def summarize(study_id: str) -> None:
             f"{rec.get('avg_abstracts_per_second', 0):>8.2f} "
             f"{rec.get('cumulative_scan_duration_seconds', 0):>9.1f} "
             f"{rec.get('total_abstracts_processed', 0):>7,} "
-            f"{rec.get('peak_macro_f1', 0):>7.4f} "
+            f"{rec.get('iteration_macro_f1', 0):>7.4f} "
+            f"{rec.get('peak_macro_f1', 0):>8.4f} "
             f"{rec.get('iterations_successful', 0):>4} "
             f"{rec.get('iterations_anomalous', 0):>4}"
         )

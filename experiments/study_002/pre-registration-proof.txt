@@ -1,0 +1,11 @@
+Pre-registration commit SHA: 19143dcd1c565250fa6c3e1dfce993678afe807f
+Locked date: 2026-06-07
+Files frozen at this commit:
+  experiments/study_002/pre-registration.md
+  experiments/study_002/episodes.jsonl
+  experiments/study_002/agent-rationale.jsonl
+  experiments/study_002/anomalies.jsonl
+  experiments/study_002/metrics.jsonl
+  experiments/study_002/routing_history.jsonl
+  experiments/study_002/model_performance.jsonl
+  experiments/study_002/iterations/.gitkeep
